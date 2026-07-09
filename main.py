@@ -417,14 +417,32 @@ def send_email(subject, body):
         server.login(QQ_EMAIL, QQ_EMAIL_AUTH_CODE)
         server.sendmail(QQ_EMAIL, [RECIPIENT_EMAIL], msg.as_string())
 
-
 def main():
     today = now_beijing().strftime("%Y-%m-%d")
     subject = f"Daily Global Economic Briefing｜全球经济新闻速览｜{today}"
 
-    print("[INFO] Fetching news...")
-    news_items = fetch_news()
-    print(f"[INFO] Fetched {len(news_items)} news items.")
+    news_items = []
+
+    try:
+        print("[INFO] Fetching news...")
+        news_items = fetch_news()
+        print(f"[INFO] Fetched {len(news_items)} news items.")
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch news: {e}")
+        body = f"""
+Daily Global Economic Briefing｜全球经济新闻速览｜{today}
+
+For reference only. This briefing does not constitute financial, investment, legal, business, or compliance advice.
+仅供参考。本简报不构成金融、投资、法律、商业或合规建议。
+
+Failed to fetch RSS news items today.
+今天 RSS 新闻抓取失败。
+
+Error:
+{e}
+""".strip()
+        send_email(subject, body)
+        return
 
     if not news_items:
         body = f"""
@@ -440,20 +458,20 @@ No RSS news items were fetched today.
         print("[INFO] Sent no-news email.")
         return
 
-try:
-    print("[INFO] Calling DeepSeek...")
-    prompt = build_prompt(news_items)
-    ai_text = call_deepseek(prompt)
+    try:
+        print("[INFO] Calling DeepSeek...")
+        prompt = build_prompt(news_items)
+        ai_text = call_deepseek(prompt)
 
-    print("[INFO] Parsing DeepSeek response...")
-    ai_data = extract_json_from_ai(ai_text)
+        print("[INFO] Parsing DeepSeek response...")
+        ai_data = extract_json_from_ai(ai_text)
 
-    print("[INFO] Building final email with original RSS links...")
-    body = build_ai_email(ai_data, news_items)
+        print("[INFO] Building final email with original RSS links...")
+        body = build_ai_email(ai_data, news_items)
 
-except Exception as e:
-    print(f"[ERROR] DeepSeek failed or AI response parsing failed: {e}")
-    body = build_fallback_email(news_items)
+    except Exception as e:
+        print(f"[ERROR] DeepSeek failed or AI response parsing failed: {e}")
+        body = build_fallback_email(news_items)
 
     print("[INFO] Sending email...")
     send_email(subject, body)
