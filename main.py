@@ -186,6 +186,7 @@ def fetch_news():
                 published_str = published_dt.astimezone(BEIJING_TZ).strftime("%Y-%m-%d %H:%M BJT")
 
             all_items.append({
+                "id": len(all_items) + 1,
                 "source": source,
                 "title": title[:240],
                 "summary": summary[:500],
@@ -211,28 +212,31 @@ def build_prompt(news_items):
 You are a professional global economy news editor.
 
 Task:
-From the following RSS news items, select up to {MAX_FINAL_ITEMS} of the most important global economic, financial, trade, central bank, energy, commodity, industrial policy, or geopolitical-economy news items.
+From the following RSS news items, select up to {MAX_FINAL_ITEMS} of the most important global economic, financial, trade, central bank, energy, commodity, industrial policy, China economy, or geopolitical-economy news items.
 
-Requirements:
-1. Output must be bilingual: English and Simplified Chinese.
-2. Include China-related economic news if there is any meaningful item.
-3. Each selected item must include:
-   - Number
-   - English title
-   - 中文标题
-   - English summary, 2-3 sentences
-   - 中文摘要，2-3句
-   - Source
-   - Original link
-4. Prioritize credible and mainstream sources.
-5. Avoid duplicate or near-duplicate stories.
-6. Do not provide stock recommendations, trading advice, investment advice, or price predictions.
-7. Do not invent facts. Use only the given news items.
-8. If fewer than 10 important items are available, output fewer than 10.
-9. Format the result as a clean email briefing in Markdown-style plain text.
-10. Add a short disclaimer at the top:
-   "For reference only. This briefing does not constitute financial, investment, legal, business, or compliance advice."
-   and Chinese equivalent.
+Important rules:
+1. Return valid JSON only.
+2. Do not use Markdown.
+3. Do not include source names or links in your output.
+4. Do not invent facts.
+5. Use only the given news items.
+6. Select items by their original "id".
+7. Include China-related economic news if there is any meaningful China-related item.
+8. Do not provide investment advice, stock recommendations, trading advice, or price predictions.
+
+Output JSON format must be exactly:
+
+{{
+  "items": [
+    {{
+      "id": 1,
+      "english_title": "English title here",
+      "chinese_title": "中文标题在这里",
+      "english_summary": "English summary in 2-3 sentences.",
+      "chinese_summary": "中文摘要，2-3句。"
+    }}
+  ]
+}}
 
 Date: {today}
 Time: 08:00 Beijing Time
@@ -277,6 +281,92 @@ def call_deepseek(prompt):
 
     data = response.json()
     return data["choices"][0]["message"]["content"].strip()
+
+
+def extract_json_from_ai(ai_text):
+    """
+    Extract JSON from AI response.
+    Handles cases where the model wraps JSON in ```json ... ```.
+    """
+    text = ai_text.strip()
+
+    if text.startswith("```"):
+        text = re.sub(r"^```json\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"^```\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+
+    start = text.find("{")
+    end = text.rfind("}")
+
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError("No valid JSON object found in AI response.")
+
+    json_text = text[start:end + 1]
+    return json.loads(json_text)
+
+
+def build_ai_email(ai_data, news_items):
+    """
+    Build final email using AI summaries but original RSS links.
+    This prevents AI from modifying or hallucinating URLs.
+    """
+    today = now_beijing().strftime("%Y-%m-%d")
+
+    item_map = {}
+    for item in news_items:
+        item_map[int(item["id"])] = item
+
+    lines = []
+    lines.append(f"Daily Global Economic Briefing｜全球经济新闻速览｜{today}")
+    lines.append("")
+    lines.append("For reference only. This briefing does not constitute financial, investment, legal, business, or compliance advice.")
+    lines.append("仅供参考。本简报不构成金融、投资、法律、商业或合规建议。")
+    lines.append("")
+
+    selected_items = ai_data.get("items", [])[:MAX_FINAL_ITEMS]
+
+    count = 0
+    for ai_item in selected_items:
+        try:
+            item_id = int(ai_item.get("id"))
+        except Exception:
+            continue
+
+        original = item_map.get(item_id)
+        if not original:
+            continue
+
+        count += 1
+
+        lines.append(f"{count}. English Title:")
+        lines.append(f"   {ai_item.get('english_title', original.get('title', '')).strip()}")
+        lines.append("")
+        lines.append("   中文标题：")
+        lines.append(f"   {ai_item.get('chinese_title', '').strip()}")
+        lines.append("")
+        lines.append("   English Summary:")
+        lines.append(f"   {ai_item.get('english_summary', '').strip()}")
+        lines.append("")
+        lines.append("   中文摘要：")
+        lines.append(f"   {ai_item.get('chinese_summary', '').strip()}")
+        lines.append("")
+        lines.append(f"   Source / 来源: {original.get('source', '')}")
+        if original.get("published"):
+            lines.append(f"   Published / 发布时间: {original.get('published')}")
+        lines.append(f"   Link / 链接: {original.get('link', '')}")
+        lines.append("")
+        lines.append("-" * 70)
+        lines.append("")
+
+    if count == 0:
+        raise ValueError("AI returned no valid selected items.")
+
+    return "\n".join(lines)
+
+
+
+
+
 
 
 def build_fallback_email(news_items):
@@ -350,13 +440,20 @@ No RSS news items were fetched today.
         print("[INFO] Sent no-news email.")
         return
 
-    try:
-        print("[INFO] Calling DeepSeek...")
-        prompt = build_prompt(news_items)
-        body = call_deepseek(prompt)
-    except Exception as e:
-        print(f"[ERROR] DeepSeek failed: {e}")
-        body = build_fallback_email(news_items)
+try:
+    print("[INFO] Calling DeepSeek...")
+    prompt = build_prompt(news_items)
+    ai_text = call_deepseek(prompt)
+
+    print("[INFO] Parsing DeepSeek response...")
+    ai_data = extract_json_from_ai(ai_text)
+
+    print("[INFO] Building final email with original RSS links...")
+    body = build_ai_email(ai_data, news_items)
+
+except Exception as e:
+    print(f"[ERROR] DeepSeek failed or AI response parsing failed: {e}")
+    body = build_fallback_email(news_items)
 
     print("[INFO] Sending email...")
     send_email(subject, body)
