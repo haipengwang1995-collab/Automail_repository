@@ -25,7 +25,7 @@ QQ_EMAIL = os.getenv("QQ_EMAIL")
 QQ_EMAIL_AUTH_CODE = os.getenv("QQ_EMAIL_AUTH_CODE")
 RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
 
-MAX_NEWS_ITEMS_FOR_AI = 80
+MAX_NEWS_ITEMS_FOR_AI = 120
 MAX_FINAL_ITEMS = 10
 
 
@@ -34,9 +34,10 @@ MAX_FINAL_ITEMS = 10
 # Some RSS links may change over time.
 # If one source fails, the script will continue.
 # =========================
-
 RSS_FEEDS = [
+    # =========================
     # Global business / economy
+    # =========================
     {
         "source": "BBC Business",
         "url": "https://feeds.bbci.co.uk/news/business/rss.xml"
@@ -53,8 +54,18 @@ RSS_FEEDS = [
         "source": "CNBC Finance",
         "url": "https://www.cnbc.com/id/10000664/device/rss/rss.html"
     },
+    {
+        "source": "NPR Business",
+        "url": "https://feeds.npr.org/1006/rss.xml"
+    },
+    {
+        "source": "The Guardian Business",
+        "url": "https://www.theguardian.com/uk/business/rss"
+    },
 
+    # =========================
     # Financial Times public RSS
+    # =========================
     {
         "source": "Financial Times - Global Economy",
         "url": "https://www.ft.com/global-economy?format=rss"
@@ -67,8 +78,14 @@ RSS_FEEDS = [
         "source": "Financial Times - China",
         "url": "https://www.ft.com/china?format=rss"
     },
+    {
+        "source": "Financial Times - World",
+        "url": "https://www.ft.com/world?format=rss"
+    },
 
+    # =========================
     # The Economist public RSS
+    # =========================
     {
         "source": "The Economist - Finance & Economics",
         "url": "https://www.economist.com/finance-and-economics/rss.xml"
@@ -77,8 +94,14 @@ RSS_FEEDS = [
         "source": "The Economist - Business",
         "url": "https://www.economist.com/business/rss.xml"
     },
+    {
+        "source": "The Economist - China",
+        "url": "https://www.economist.com/china/rss.xml"
+    },
 
+    # =========================
     # Asia / China
+    # =========================
     {
         "source": "Nikkei Asia",
         "url": "https://asia.nikkei.com/rss/feed/nar"
@@ -88,11 +111,17 @@ RSS_FEEDS = [
         "url": "https://www.scmp.com/rss/92/feed"
     },
     {
+        "source": "South China Morning Post - Economy China",
+        "url": "https://www.scmp.com/rss/318208/feed"
+    },
+    {
         "source": "Caixin Global",
         "url": "https://www.caixinglobal.com/rss/"
     },
 
-    # Multilateral institutions
+    # =========================
+    # International institutions
+    # =========================
     {
         "source": "IMF News",
         "url": "https://www.imf.org/external/rss/news.xml"
@@ -105,8 +134,45 @@ RSS_FEEDS = [
         "source": "BIS Press Releases",
         "url": "https://www.bis.org/list/press_releases/index.rss"
     },
-]
 
+    # =========================
+    # Central banks / official sources
+    # =========================
+    {
+        "source": "Federal Reserve",
+        "url": "https://www.federalreserve.gov/feeds/press_all.xml"
+    },
+
+    # =========================
+    # Google News RSS - broader coverage
+    # These help diversify sources.
+    # Links may be Google redirect links.
+    # =========================
+    {
+        "source": "Google News - Global Economy",
+        "url": "https://news.google.com/rss/search?q=global%20economy%20when:1d&hl=en-US&gl=US&ceid=US:en"
+    },
+    {
+        "source": "Google News - China Economy",
+        "url": "https://news.google.com/rss/search?q=China%20economy%20when:1d&hl=en-US&gl=US&ceid=US:en"
+    },
+    {
+        "source": "Google News - Central Banks",
+        "url": "https://news.google.com/rss/search?q=central%20bank%20interest%20rates%20inflation%20when:1d&hl=en-US&gl=US&ceid=US:en"
+    },
+    {
+        "source": "Google News - Trade and Tariffs",
+        "url": "https://news.google.com/rss/search?q=global%20trade%20tariffs%20supply%20chain%20when:1d&hl=en-US&gl=US&ceid=US:en"
+    },
+    {
+        "source": "Google News - Energy Economy",
+        "url": "https://news.google.com/rss/search?q=energy%20oil%20gas%20economy%20when:1d&hl=en-US&gl=US&ceid=US:en"
+    },
+    {
+        "source": "Google News - IMF World Bank OECD",
+        "url": "https://news.google.com/rss/search?q=IMF%20OR%20World%20Bank%20OR%20OECD%20global%20economy%20when:1d&hl=en-US&gl=US&ceid=US:en"
+    }
+]
 
 # =========================
 # Helpers
@@ -212,17 +278,39 @@ def build_prompt(news_items):
 You are a professional global economy news editor.
 
 Task:
-From the following RSS news items, select up to {MAX_FINAL_ITEMS} of the most important global economic, financial, trade, central bank, energy, commodity, industrial policy, China economy, or geopolitical-economy news items.
+From the following RSS news items, select up to {MAX_FINAL_ITEMS} of the most important global economic, financial, trade, central bank, inflation, energy, commodity, industrial policy, China economy, or geopolitical-economy news items.
 
-Important rules:
+Selection requirements:
+1. Prioritize credible and mainstream sources.
+2. Include China-related economic news if there is any meaningful China-related item.
+3. Try to avoid selecting more than 2 items from the same source, unless the news is exceptionally important.
+4. Try to cover several categories when possible:
+   - China economy
+   - US economy / Federal Reserve
+   - Europe economy / ECB
+   - Global trade and supply chains
+   - Energy and commodities
+   - International institutions such as IMF, World Bank, OECD, BIS
+   - Major industrial policy or geopolitical-economy developments
+5. Avoid duplicate or near-duplicate stories.
+6. Do not invent facts.
+7. Use only the given news items.
+8. Select items by their original "id".
+9. Do not provide investment advice, stock recommendations, trading advice, or price predictions.
+
+Output requirements:
 1. Return valid JSON only.
 2. Do not use Markdown.
-3. Do not include source names or links in your output.
-4. Do not invent facts.
-5. Use only the given news items.
-6. Select items by their original "id".
-7. Include China-related economic news if there is any meaningful China-related item.
-8. Do not provide investment advice, stock recommendations, trading advice, or price predictions.
+3. Do not include source names or links in your output. The program will add original RSS sources and links later.
+4. Every selected item must contain both English and Simplified Chinese.
+5. The Chinese summary should be slightly more detailed than the English summary.
+6. English summary: 2 concise sentences.
+7. Chinese summary: 3 to 5 sentences, around 120 to 220 Chinese characters.
+8. The Chinese summary should explain:
+   - what happened,
+   - why it matters for the economy,
+   - possible macroeconomic or policy relevance.
+9. Do not include investment advice or asset price predictions.
 
 Output JSON format must be exactly:
 
@@ -232,8 +320,8 @@ Output JSON format must be exactly:
       "id": 1,
       "english_title": "English title here",
       "chinese_title": "中文标题在这里",
-      "english_summary": "English summary in 2-3 sentences.",
-      "chinese_summary": "中文摘要，2-3句。"
+      "english_summary": "English summary in 2 concise sentences.",
+      "chinese_summary": "中文摘要，3到5句，约120到220个中文字符。需要说明事件本身、经济意义和政策或宏观背景，但不能包含投资建议或价格预测。"
     }}
   ]
 }}
@@ -271,7 +359,7 @@ def call_deepseek(prompt):
             }
         ],
         "temperature": 0.2,
-        "max_tokens": 4000
+        "max_tokens": 8000
     }
 
     response = requests.post(url, headers=headers, json=payload, timeout=90)
