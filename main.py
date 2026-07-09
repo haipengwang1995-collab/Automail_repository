@@ -23,7 +23,7 @@ AI_MODEL = os.getenv("AI_MODEL", "deepseek-chat")
 
 QQ_EMAIL = os.getenv("QQ_EMAIL")
 QQ_EMAIL_AUTH_CODE = os.getenv("QQ_EMAIL_AUTH_CODE")
-RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
+RECIPIENT_EMAILS = os.getenv("RECIPIENT_EMAILS") or os.getenv("RECIPIENT_EMAIL")
 
 MAX_NEWS_ITEMS_FOR_AI = 120
 MAX_FINAL_ITEMS = 10
@@ -484,18 +484,35 @@ def build_fallback_email(news_items):
 
     return "\n".join(lines)
 
+def parse_recipients(value):
+    """
+    Parse recipient emails from comma / semicolon separated string.
+    Example:
+    a@company.com,b@company.com;c@company.com
+    """
+    if not value:
+        return []
+
+    parts = re.split(r"[;,]", value)
+    recipients = [p.strip() for p in parts if p.strip()]
+    return recipients
 
 def send_email(subject, body):
     if not QQ_EMAIL:
         raise RuntimeError("QQ_EMAIL is not set.")
     if not QQ_EMAIL_AUTH_CODE:
         raise RuntimeError("QQ_EMAIL_AUTH_CODE is not set.")
-    if not RECIPIENT_EMAIL:
-        raise RuntimeError("RECIPIENT_EMAIL is not set.")
+    if not RECIPIENT_EMAILS:
+        raise RuntimeError("RECIPIENT_EMAILS or RECIPIENT_EMAIL is not set.")
+
+    recipients = parse_recipients(RECIPIENT_EMAILS)
+
+    if not recipients:
+        raise RuntimeError("No valid recipient emails found.")
 
     msg = MIMEText(body, "plain", "utf-8")
     msg["From"] = formataddr((str(Header("Daily Economic Briefing", "utf-8")), QQ_EMAIL))
-    msg["To"] = RECIPIENT_EMAIL
+    msg["To"] = ", ".join(recipients)
     msg["Subject"] = Header(subject, "utf-8")
 
     smtp_server = "smtp.qq.com"
@@ -503,7 +520,7 @@ def send_email(subject, body):
 
     with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
         server.login(QQ_EMAIL, QQ_EMAIL_AUTH_CODE)
-        server.sendmail(QQ_EMAIL, [RECIPIENT_EMAIL], msg.as_string())
+        server.sendmail(QQ_EMAIL, recipients, msg.as_string())
 
 def main():
     today = now_beijing().strftime("%Y-%m-%d")
