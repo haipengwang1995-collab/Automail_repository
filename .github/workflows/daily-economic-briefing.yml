@@ -1,0 +1,36 @@
+name: Daily Economic Briefing
+
+on:
+  schedule:
+    # GitHub Actions uses UTC time.
+    # 00:00 UTC = 08:00 Beijing Time.
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  send-briefing:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run daily briefing script
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+          QQ_EMAIL: ${{ secrets.QQ_EMAIL }}
+          QQ_EMAIL_AUTH_CODE: ${{ secrets.QQ_EMAIL_AUTH_CODE }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+        run: |
+          python main.py
