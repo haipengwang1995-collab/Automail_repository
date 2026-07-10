@@ -1,0 +1,24 @@
+name: Test Schedule
+
+on:
+  schedule:
+    # Test only: run every 5 minutes.
+    # GitHub Actions uses UTC time.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  test-schedule:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Print trigger information
+        run: |
+          echo "Scheduled workflow test"
+          echo "GitHub event name: ${{ github.event_name }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch ref: ${{ github.ref }}"
+          echo "UTC time:"
+          date -u
+          echo "Runner local time:"
+          date
