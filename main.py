@@ -441,12 +441,11 @@ def extract_json_from_ai(ai_text):
     json_text = text[start:end + 1]
     return json.loads(json_text)
 
-
 def build_ai_email(ai_data, news_items):
     """
     Build final email using AI summaries but original RSS links.
-    This prevents AI from modifying or hallucinating URLs.
     """
+
     today = now_beijing().strftime("%Y-%m-%d")
 
     item_map = {}
@@ -454,52 +453,186 @@ def build_ai_email(ai_data, news_items):
         item_map[int(item["id"])] = item
 
     lines = []
-    lines.append(f"Daily Global Economic Briefing｜全球经济新闻速览｜{today}")
+
+    lines.append(
+        f"Daily Global Economic Briefing｜全球经济新闻速览｜{today}"
+    )
     lines.append("")
-    lines.append("For reference only. This briefing does not constitute financial, investment, legal, business, or compliance advice.")
-    lines.append("仅供参考。本简报不构成金融、投资、法律、商业或合规建议。")
+    lines.append(
+        "For reference only. This briefing does not constitute financial, investment, legal, business, or compliance advice."
+    )
+    lines.append(
+        "仅供参考。本简报不构成金融、投资、法律、商业或合规建议。"
+    )
     lines.append("")
+
 
     selected_items = ai_data.get("items", [])[:MAX_FINAL_ITEMS]
 
     count = 0
+
     for ai_item in selected_items:
+
         try:
             item_id = int(ai_item.get("id"))
         except Exception:
             continue
 
+
         original = item_map.get(item_id)
+
         if not original:
             continue
 
+
         count += 1
 
-        lines.append(f"{count}. English Title:")
-        lines.append(f"   {ai_item.get('english_title', original.get('title', '')).strip()}")
+
+        lines.append("=" * 70)
+        lines.append(
+            f"{count}. {ai_item.get('chinese_title','')}"
+        )
+        lines.append("=" * 70)
         lines.append("")
-        lines.append("   中文标题：")
-        lines.append(f"   {ai_item.get('chinese_title', '').strip()}")
+
+
+        lines.append("English Title:")
+        lines.append(
+            ai_item.get("english_title", "").strip()
+        )
         lines.append("")
-        lines.append("   English Summary:")
-        lines.append(f"   {ai_item.get('english_summary', '').strip()}")
+
+
+        lines.append("中文标题:")
+        lines.append(
+            ai_item.get("chinese_title", "").strip()
+        )
         lines.append("")
-        lines.append("   中文摘要：")
-        lines.append(f"   {ai_item.get('chinese_summary', '').strip()}")
+
+
+        lines.append("中文摘要:")
+        lines.append(
+            ai_item.get("chinese_summary", "").strip()
+        )
         lines.append("")
-        lines.append(f"   Source / 来源: {original.get('source', '')}")
+
+
+        # 新增 V5 字段
+
+        lines.append("Importance Score / 重要性:")
+        lines.append(
+            str(ai_item.get("importance_score",""))
+        )
+        lines.append("")
+
+
+        lines.append("Surprise Level / 超预期程度:")
+        lines.append(
+            str(ai_item.get("surprise_level",""))
+        )
+        lines.append("")
+
+
+        lines.append("Confidence / 分析置信度:")
+        lines.append(
+            str(ai_item.get("confidence",""))
+        )
+        lines.append("")
+
+
+        lines.append("Investment Horizon / 投资周期:")
+        lines.append(
+            str(ai_item.get("investment_horizon",""))
+        )
+        lines.append("")
+
+
+        lines.append("Risk Tags / 风险标签:")
+        risk_tags = ai_item.get("risk_tags", [])
+        lines.append(
+            ", ".join(risk_tags)
+            if isinstance(risk_tags,list)
+            else str(risk_tags)
+        )
+        lines.append("")
+
+
+        lines.append("Transmission Mechanism / 传导机制:")
+        lines.append(
+            ai_item.get(
+                "transmission_mechanism",
+                ""
+            )
+        )
+        lines.append("")
+
+
+        lines.append("Affected Assets / 影响资产:")
+        assets = ai_item.get(
+            "affected_assets",
+            []
+        )
+        lines.append(
+            ", ".join(assets)
+            if isinstance(assets,list)
+            else str(assets)
+        )
+        lines.append("")
+
+
+        lines.append("Sector Impact / 行业影响:")
+        lines.append(
+            ai_item.get(
+                "sector_impact",
+                ""
+            )
+        )
+        lines.append("")
+
+
+        lines.append("Macro Reasoning / 宏观逻辑:")
+        lines.append(
+            ai_item.get(
+                "macro_reasoning",
+                ""
+            )
+        )
+        lines.append("")
+
+
+        lines.append("Portfolio Implication / 投资组合含义:")
+        lines.append(
+            ai_item.get(
+                "portfolio_implication",
+                ""
+            )
+        )
+        lines.append("")
+
+
+        lines.append(
+            f"Source / 来源: {original.get('source','')}"
+        )
+
         if original.get("published"):
-            lines.append(f"   Published / 发布时间: {original.get('published')}")
-        lines.append(f"   Link / 链接: {original.get('link', '')}")
+            lines.append(
+                f"Published / 发布时间: {original.get('published')}"
+            )
+
+        lines.append(
+            f"Link / 链接: {original.get('link','')}"
+        )
+
         lines.append("")
-        lines.append("-" * 70)
-        lines.append("")
+
 
     if count == 0:
-        raise ValueError("AI returned no valid selected items.")
+        raise ValueError(
+            "AI returned no valid selected items."
+        )
+
 
     return "\n".join(lines)
-
 
 
 
