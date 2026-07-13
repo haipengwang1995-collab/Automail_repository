@@ -23,7 +23,8 @@ AI_MODEL = os.getenv("AI_MODEL", "deepseek-chat")
 
 QQ_EMAIL = os.getenv("QQ_EMAIL")
 QQ_EMAIL_AUTH_CODE = os.getenv("QQ_EMAIL_AUTH_CODE")
-RECIPIENT_EMAILS = os.getenv("RECIPIENT_EMAILS") or os.getenv("RECIPIENT_EMAIL")
+RECIPIENT_EMAILS = os.getenv("RECIPIENT_EMAIL")
+# RECIPIENT_EMAILS = os.getenv("RECIPIENT_EMAILS") or os.getenv("RECIPIENT_EMAIL")
 
 MAX_NEWS_ITEMS_FOR_AI = 120
 MAX_FINAL_ITEMS = 10
@@ -179,7 +180,7 @@ RSS_FEEDS = [
 # Helpers
 # =========================
 
-def load_prompt(name):
+def load_prompt(filename):
     """
     Load a prompt template from the prompts directory.
 
