@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
-
+from pathlib import Path
 
 # =========================
 # Basic Config
@@ -28,6 +28,7 @@ RECIPIENT_EMAILS = os.getenv("RECIPIENT_EMAILS") or os.getenv("RECIPIENT_EMAIL")
 MAX_NEWS_ITEMS_FOR_AI = 120
 MAX_FINAL_ITEMS = 10
 
+PROMPT_DIR = Path(__file__).parent / "prompts"
 
 # =========================
 # RSS Sources
@@ -178,6 +179,35 @@ RSS_FEEDS = [
 # Helpers
 # =========================
 
+def load_prompt(name):
+    """
+    Load a prompt template from the prompts directory.
+
+    Args:
+        filename: Prompt filename, e.g. "system.md" or "user.md"
+
+    Returns:
+        Prompt content as a UTF-8 string.
+
+    Raises:
+        FileNotFoundError: If the prompt file does not exist.
+        RuntimeError: If the prompt file is empty.
+    """
+
+    prompt_path = PROMPT_DIR / filename
+
+    if not prompt_path.is_file():
+        raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
+
+    content = prompt_path.read_text(encoding="utf-8").strip()
+
+    if not content:
+        raise RuntimeError(f"Prompt file is empty: {prompt_path}")
+
+    return content
+
+
+
 def now_beijing():
     return datetime.now(BEIJING_TZ)
 
@@ -255,7 +285,7 @@ def fetch_news():
                 "id": len(all_items) + 1,
                 "source": source,
                 "title": title[:240],
-                "summary": summary[:500],
+                "summary": summary[:400],
                 "link": link,
                 "published": published_str
             })
@@ -269,75 +299,94 @@ def fetch_news():
     return all_items[:MAX_NEWS_ITEMS_FOR_AI]
 
 
+# def build_prompt(news_items):
+#     today = now_beijing().strftime("%Y-%m-%d")
+
+#     news_json = json.dumps(news_items, ensure_ascii=False, indent=2)
+
+#     prompt = f"""
+# You are a professional global economy news editor.
+
+# Task:
+# From the following RSS news items, select up to {MAX_FINAL_ITEMS} of the most important global economic, financial, trade, central bank, inflation, energy, commodity, industrial policy, China economy, or geopolitical-economy news items.
+
+# Selection requirements:
+# 1. Prioritize credible and mainstream sources.
+# 2. Include China-related economic news if there is any meaningful China-related item.
+# 3. Try to avoid selecting more than 2 items from the same source, unless the news is exceptionally important.
+# 4. Try to cover several categories when possible:
+#    - China economy
+#    - US economy / Federal Reserve
+#    - Europe economy / ECB
+#    - Global trade and supply chains
+#    - Energy and commodities
+#    - International institutions such as IMF, World Bank, OECD, BIS
+#    - Major industrial policy or geopolitical-economy developments
+# 5. Avoid duplicate or near-duplicate stories.
+# 6. Do not invent facts.
+# 7. Use only the given news items.
+# 8. Select items by their original "id".
+# 9. Do not provide investment advice, stock recommendations, trading advice, or price predictions.
+
+# Output requirements:
+# 1. Return valid JSON only.
+# 2. Do not use Markdown.
+# 3. Do not include source names or links in your output. The program will add original RSS sources and links later.
+# 4. Every selected item must contain both English and Simplified Chinese.
+# 5. The Chinese summary should be slightly more detailed than the English summary.
+# 6. English summary: 2 concise sentences.
+# 7. Chinese summary: 3 to 5 sentences, around 120 to 220 Chinese characters.
+# 8. The Chinese summary should explain:
+#    - what happened,
+#    - why it matters for the economy,
+#    - possible macroeconomic or policy relevance.
+# 9. Do not include investment advice or asset price predictions.
+
+# Output JSON format must be exactly:
+
+# {{
+#   "items": [
+#     {{
+#       "id": 1,
+#       "english_title": "English title here",
+#       "chinese_title": "中文标题在这里",
+#       "english_summary": "English summary in 2 concise sentences.",
+#       "chinese_summary": "中文摘要，3到5句，约120到220个中文字符。需要说明事件本身、经济意义和政策或宏观背景，但不能包含投资建议或价格预测。"
+#     }}
+#   ]
+# }}
+
+# Date: {today}
+# Time: 08:00 Beijing Time
+
+# News items:
+# {news_json}
+# """
+#     return prompt.strip()
+
+
 def build_prompt(news_items):
     today = now_beijing().strftime("%Y-%m-%d")
 
-    news_json = json.dumps(news_items, ensure_ascii=False, indent=2)
+    news_json = json.dumps(
+        news_items,
+        ensure_ascii=False,
+        indent=2
+    )
 
-    prompt = f"""
-You are a professional global economy news editor.
+    template = load_prompt("user.md")
 
-Task:
-From the following RSS news items, select up to {MAX_FINAL_ITEMS} of the most important global economic, financial, trade, central bank, inflation, energy, commodity, industrial policy, China economy, or geopolitical-economy news items.
+    return template.format(
+        today=today,
+        MAX_FINAL_ITEMS=MAX_FINAL_ITEMS,
+        news_json=news_json
+    )
 
-Selection requirements:
-1. Prioritize credible and mainstream sources.
-2. Include China-related economic news if there is any meaningful China-related item.
-3. Try to avoid selecting more than 2 items from the same source, unless the news is exceptionally important.
-4. Try to cover several categories when possible:
-   - China economy
-   - US economy / Federal Reserve
-   - Europe economy / ECB
-   - Global trade and supply chains
-   - Energy and commodities
-   - International institutions such as IMF, World Bank, OECD, BIS
-   - Major industrial policy or geopolitical-economy developments
-5. Avoid duplicate or near-duplicate stories.
-6. Do not invent facts.
-7. Use only the given news items.
-8. Select items by their original "id".
-9. Do not provide investment advice, stock recommendations, trading advice, or price predictions.
-
-Output requirements:
-1. Return valid JSON only.
-2. Do not use Markdown.
-3. Do not include source names or links in your output. The program will add original RSS sources and links later.
-4. Every selected item must contain both English and Simplified Chinese.
-5. The Chinese summary should be slightly more detailed than the English summary.
-6. English summary: 2 concise sentences.
-7. Chinese summary: 3 to 5 sentences, around 120 to 220 Chinese characters.
-8. The Chinese summary should explain:
-   - what happened,
-   - why it matters for the economy,
-   - possible macroeconomic or policy relevance.
-9. Do not include investment advice or asset price predictions.
-
-Output JSON format must be exactly:
-
-{{
-  "items": [
-    {{
-      "id": 1,
-      "english_title": "English title here",
-      "chinese_title": "中文标题在这里",
-      "english_summary": "English summary in 2 concise sentences.",
-      "chinese_summary": "中文摘要，3到5句，约120到220个中文字符。需要说明事件本身、经济意义和政策或宏观背景，但不能包含投资建议或价格预测。"
-    }}
-  ]
-}}
-
-Date: {today}
-Time: 08:00 Beijing Time
-
-News items:
-{news_json}
-"""
-    return prompt.strip()
-
-
-def call_deepseek(prompt):
+def call_deepseek(user_prompt):
     if not DEEPSEEK_API_KEY:
         raise RuntimeError("DEEPSEEK_API_KEY is not set.")
+
+    system_prompt = load_prompt("system.md")
 
     url = f"{AI_BASE_URL}/chat/completions"
 
@@ -351,11 +400,11 @@ def call_deepseek(prompt):
         "messages": [
             {
                 "role": "system",
-                "content": "You are a careful and neutral global economy news editor. You summarize news without giving investment advice."
+                "content": system_prompt
             },
             {
                 "role": "user",
-                "content": prompt
+                "content": user_prompt
             }
         ],
         "temperature": 0.2,
