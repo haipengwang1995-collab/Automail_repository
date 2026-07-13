@@ -113,11 +113,24 @@ Risks - Key Opportunities
 
 ## Output JSON
 
-Each item should contain: - id - publisher - source_tier -
-english_title - chinese_title - english_summary - chinese_summary -
-importance_score - surprise_level - confidence - investment_horizon -
-risk_tags - transmission_mechanism - affected_assets - sector_impact -
-macro_reasoning - portfolio_implication
+Each item should contain:
+
+- id
+- publisher
+- source_tier
+- english_title
+- chinese_title
+- chinese_summary
+- importance_score
+- investment_horizon
+- risk_tags
+- transmission_mechanism
+- affected_assets
+- sector_impact
+- macro_reasoning
+- portfolio_implication
+
+All analysis fields must be written in Chinese.
 
 Top level: - date - executive_summary - overall_macro_view -
 headline_of_the_day - items - portfolio_view

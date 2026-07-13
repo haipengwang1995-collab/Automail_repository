@@ -441,9 +441,13 @@ def extract_json_from_ai(ai_text):
     json_text = text[start:end + 1]
     return json.loads(json_text)
 
+
+
 def build_ai_email(ai_data, news_items):
     """
-    Build final email using AI summaries but original RSS links.
+    Build final email using AI analysis but original RSS links.
+    AI provides analysis fields.
+    RSS provides source and URL to avoid hallucinated links.
     """
 
     today = now_beijing().strftime("%Y-%m-%d")
@@ -458,6 +462,7 @@ def build_ai_email(ai_data, news_items):
         f"Daily Global Economic Briefing｜全球经济新闻速览｜{today}"
     )
     lines.append("")
+
     lines.append(
         "For reference only. This briefing does not constitute financial, investment, legal, business, or compliance advice."
     )
@@ -490,139 +495,158 @@ def build_ai_email(ai_data, news_items):
 
         lines.append("=" * 70)
         lines.append(
-            f"{count}. {ai_item.get('chinese_title','')}"
+            f"{count}. {ai_item.get('chinese_title', '').strip()}"
         )
         lines.append("=" * 70)
         lines.append("")
 
 
+        # English Title
         lines.append("English Title:")
         lines.append(
-            ai_item.get("english_title", "").strip()
+            ai_item.get(
+                "english_title",
+                original.get("title", "")
+            ).strip()
         )
         lines.append("")
 
 
-        lines.append("中文标题:")
+        # 中文摘要
+        lines.append("中文摘要：")
         lines.append(
-            ai_item.get("chinese_title", "").strip()
+            ai_item.get(
+                "chinese_summary",
+                ""
+            ).strip()
         )
         lines.append("")
 
 
-        lines.append("中文摘要:")
+        # 重要性评分
+        lines.append("重要性评分：")
         lines.append(
-            ai_item.get("chinese_summary", "").strip()
+            f"{ai_item.get('importance_score', '')} / 100"
         )
         lines.append("")
 
 
-        # 新增 V5 字段
-
-        lines.append("Importance Score / 重要性:")
+        # 投资周期
+        lines.append("投资周期：")
         lines.append(
-            str(ai_item.get("importance_score",""))
+            ai_item.get(
+                "investment_horizon",
+                ""
+            ).strip()
         )
         lines.append("")
 
 
-        lines.append("Surprise Level / 超预期程度:")
-        lines.append(
-            str(ai_item.get("surprise_level",""))
+        # 风险标签
+        lines.append("风险标签：")
+
+        risk_tags = ai_item.get(
+            "risk_tags",
+            []
         )
+
+        if isinstance(risk_tags, list):
+            lines.append(
+                " | ".join(risk_tags)
+            )
+        else:
+            lines.append(
+                str(risk_tags)
+            )
+
         lines.append("")
 
 
-        lines.append("Confidence / 分析置信度:")
-        lines.append(
-            str(ai_item.get("confidence",""))
-        )
-        lines.append("")
-
-
-        lines.append("Investment Horizon / 投资周期:")
-        lines.append(
-            str(ai_item.get("investment_horizon",""))
-        )
-        lines.append("")
-
-
-        lines.append("Risk Tags / 风险标签:")
-        risk_tags = ai_item.get("risk_tags", [])
-        lines.append(
-            ", ".join(risk_tags)
-            if isinstance(risk_tags,list)
-            else str(risk_tags)
-        )
-        lines.append("")
-
-
-        lines.append("Transmission Mechanism / 传导机制:")
+        # 传导机制
+        lines.append("传导机制：")
         lines.append(
             ai_item.get(
                 "transmission_mechanism",
                 ""
-            )
+            ).strip()
         )
         lines.append("")
 
 
-        lines.append("Affected Assets / 影响资产:")
-        assets = ai_item.get(
+        # 影响资产
+        lines.append("影响资产：")
+
+        affected_assets = ai_item.get(
             "affected_assets",
             []
         )
-        lines.append(
-            ", ".join(assets)
-            if isinstance(assets,list)
-            else str(assets)
-        )
+
+        if isinstance(affected_assets, list):
+            for asset in affected_assets:
+                lines.append(
+                    f"- {asset}"
+                )
+        else:
+            lines.append(
+                str(affected_assets)
+            )
+
         lines.append("")
 
 
-        lines.append("Sector Impact / 行业影响:")
+        # 行业影响
+        lines.append("行业影响：")
         lines.append(
             ai_item.get(
                 "sector_impact",
                 ""
-            )
+            ).strip()
         )
         lines.append("")
 
 
-        lines.append("Macro Reasoning / 宏观逻辑:")
+        # 宏观逻辑
+        lines.append("宏观逻辑：")
         lines.append(
             ai_item.get(
                 "macro_reasoning",
                 ""
-            )
+            ).strip()
         )
         lines.append("")
 
 
-        lines.append("Portfolio Implication / 投资组合含义:")
+        # 投资组合含义
+        lines.append("投资组合含义：")
         lines.append(
             ai_item.get(
                 "portfolio_implication",
                 ""
-            )
+            ).strip()
         )
         lines.append("")
 
 
+        # RSS 原始信息
+        lines.append("来源：")
         lines.append(
-            f"Source / 来源: {original.get('source','')}"
+            original.get(
+                "source",
+                ""
+            )
         )
 
         if original.get("published"):
             lines.append(
-                f"Published / 发布时间: {original.get('published')}"
+                f"发布时间：{original.get('published')}"
             )
 
         lines.append(
-            f"Link / 链接: {original.get('link','')}"
+            f"原文链接：{original.get('link', '')}"
         )
 
+        lines.append("")
+        lines.append("-" * 70)
         lines.append("")
 
 
@@ -633,9 +657,6 @@ def build_ai_email(ai_data, news_items):
 
 
     return "\n".join(lines)
-
-
-
 
 
 
